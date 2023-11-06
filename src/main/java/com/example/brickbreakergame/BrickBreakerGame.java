@@ -1,4 +1,8 @@
+package com.example.brickbreakergame;
+
+import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -7,7 +11,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
-
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import java.util.LinkedList;
 
 public class BrickBreakerGame extends Application {
@@ -28,13 +33,31 @@ public class BrickBreakerGame extends Application {
     private Ball ball;
     private int score;
 
+    private boolean gameOver = false;
+    private boolean gameOverDialogShowing = false;
+
+
+//    Thread t = new Thread(() -> {
+//        while (true) {
+//            try {
+//                Thread.sleep(10);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            update();
+//            render();
+//        }
+//    });
+    private Stage primaryStage;
+
     @Override
     public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
         canvas = new Canvas(WIDTH, HEIGHT);
         gc = canvas.getGraphicsContext2D();
         bricks = new LinkedList<>();
-        paddle = new Paddle((WIDTH - PADDLE_WIDTH) / 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT);
-        ball = new Ball(WIDTH / 2, HEIGHT / 2, BALL_RADIUS);
+        paddle = new Paddle((double) (WIDTH - PADDLE_WIDTH) / 2 , HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT);
+        ball = new Ball((double) WIDTH / 2, (double) HEIGHT / 1.2, BALL_RADIUS);
 
         // Generate bricks
         generateBricks();
@@ -57,17 +80,70 @@ public class BrickBreakerGame extends Application {
         primaryStage.show();
 
         // Game loop
-        new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+
+//        t.start();
+        startGameLoop();
+
+
+
+
+    }
+
+
+    private void startGameLoop() {
+        AnimationTimer gameLoop = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                if (!gameOver) {
+                    update();
+                    render();
                 }
-                update();
-                render();
             }
-        }).start();
+        };
+
+        gameLoop.start();
+    }
+
+
+    private void showGameOverDialog() {
+        gameOverDialogShowing = true;
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Game Over");
+        alert.setHeaderText("Game Over!");
+        alert.setContentText("Do you want to restart the game?");
+
+        ButtonType restartButton = new ButtonType("Restart");
+        ButtonType exitButton = new ButtonType("Exit");
+
+        alert.getButtonTypes().setAll(restartButton, exitButton);
+
+        alert.setOnHidden(event -> {
+            gameOverDialogShowing = false;
+            if (alert.getResult() == restartButton) {
+                restartGame();
+            } else if (alert.getResult() == exitButton) {
+                exitGame();
+            }
+        });
+
+        alert.show();
+    }
+
+
+    private void restartGame() {
+        // Reset game state, including paddle, ball, and bricks
+        paddle = new Paddle((double) (WIDTH - PADDLE_WIDTH) / 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT);
+        ball = new Ball((double) WIDTH / 2, (double) HEIGHT / 1.2, BALL_RADIUS);
+        bricks.clear(); // Clear existing bricks
+        generateBricks(); // Generate new bricks
+        score = 0;
+
+        // Reset the game over flag to false
+        gameOver = false;
+    }
+    private void exitGame() {
+        // Close the application by closing the stage
+        primaryStage.close();
     }
 
     private void generateBricks() {
@@ -133,17 +209,21 @@ public class BrickBreakerGame extends Application {
         }
 
         // Check game over
-        if (ball.getY() >= HEIGHT) {
+        if (ball.getY() >= HEIGHT && !gameOver) {
             System.out.println("Game Over");
-            System.exit(0);
+            gameOver = true; // Set the game over flag
+
+            // Show the game over dialog if it's not already showing
+            if (!gameOverDialogShowing) {
+                showGameOverDialog();
+            }
         }
     }
-
     private class Paddle {
         private double x;
         private double y;
-        private double width;
-        private double height;
+        private final double width;
+        private final double height;
 
         public Paddle(double x, double y, double width, double height) {
             this.x = x;
@@ -154,13 +234,13 @@ public class BrickBreakerGame extends Application {
 
         public void moveLeft() {
             if (x > 0) {
-                x -= 5;
+                x -= 20;
             }
         }
 
         public void moveRight() {
             if (x + width < WIDTH) {
-                x += 5;
+                x += 20;
             }
         }
 
